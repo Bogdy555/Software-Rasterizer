@@ -86,7 +86,7 @@ namespace BSR
 			const Math::Mat4f GetViewMatrix() const;
 			const Math::Mat4f GetProjectionMatrix(const float _AspectRatio) const;
 			const Math::Mat4f GetCubeMapMatrix(const float _AspectRatio) const;
-			const Math::Vec3f GetForwardVector();
+			const Math::Vec3f GetForwardVector() const;
 
 		};
 

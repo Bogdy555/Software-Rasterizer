@@ -82,7 +82,7 @@ const BSR::Math::Mat4f BSR::Renderer::Camera::GetCubeMapMatrix(const float _Aspe
 	return _CubeMapCamera.GetProjectionMatrix(_AspectRatio) * _CubeMapCamera.GetViewMatrix();
 }
 
-const BSR::Math::Vec3f BSR::Renderer::Camera::GetForwardVector()
+const BSR::Math::Vec3f BSR::Renderer::Camera::GetForwardVector() const
 {
 	return Math::Mat3f::GetRotation(AngleFlat, Math::Vec3f(0.0f, 1.0f, 0.0f)) * Math::Mat3f::GetRotation(AngleVertical, Math::Vec3f(1.0f, 0.0f, 0.0f)) * Math::Vec3f(0.0f, 0.0f, -1.0f);
 }
@@ -742,8 +742,20 @@ bool BSR::Renderer::Model::Load(const wchar_t* _Path)
 
 	if (!_Meshes.size())
 	{
-		_fIn.close();
-		return false;
+		MeshFileData _DefaultMesh;
+
+		_DefaultMesh.Name = new wchar_t[lstrlenW(L"default_name") + 1];
+
+		if (!_DefaultMesh.Name)
+		{
+			_fIn.close();
+			return false;
+		}
+
+		lstrcpyW(_DefaultMesh.Name, L"default_name");
+		_DefaultMesh.FacesStart = 0;
+
+		_Meshes.push_back(_DefaultMesh);
 	}
 
 	_Meshes[_Meshes.size() - 1].FacesEnd = _Faces.size();
@@ -752,9 +764,9 @@ bool BSR::Renderer::Model::Load(const wchar_t* _Path)
 	{
 		MeshFileData& _CurrentMesh = _Meshes[_IndexMesh];
 
-		Mesh _Mesh;
+		Mesh _MeshTemp;
 
-		_Mesh.Name = _CurrentMesh.Name;
+		_MeshTemp.Name = _CurrentMesh.Name;
 
 		for (size_t _IndexFace = _CurrentMesh.FacesStart; _IndexFace < _CurrentMesh.FacesEnd; _IndexFace++)
 		{
@@ -865,19 +877,78 @@ bool BSR::Renderer::Model::Load(const wchar_t* _Path)
 
 				IndexData _IndexData;
 
-				_IndexData.IndexA = _Mesh.VBO.GetSize();
-				_IndexData.IndexB = _Mesh.VBO.GetSize() + 1;
-				_IndexData.IndexC = _Mesh.VBO.GetSize() + 2;
+				_IndexData.IndexA = _MeshTemp.VBO.GetSize();
+				_IndexData.IndexB = _MeshTemp.VBO.GetSize() + 1;
+				_IndexData.IndexC = _MeshTemp.VBO.GetSize() + 2;
 
-				_Mesh.VBO.PushBack(_VertA);
-				_Mesh.VBO.PushBack(_VertB);
-				_Mesh.VBO.PushBack(_VertC);
+				_MeshTemp.VBO.PushBack(_VertA);
+				_MeshTemp.VBO.PushBack(_VertB);
+				_MeshTemp.VBO.PushBack(_VertC);
 
-				_Mesh.IBO.PushBack(_IndexData);
+				_MeshTemp.IBO.PushBack(_IndexData);
 			}
 		}
 
-		Meshes.emplace_back(std::move(_Mesh));
+		Mesh _MeshTrue;
+
+		_MeshTrue.Name = _CurrentMesh.Name;
+
+		for (size_t _IndexTemp = 0; _IndexTemp < _MeshTemp.VBO.GetSize(); _IndexTemp++)
+		{
+			bool _Found = false;
+
+			for (size_t _IndexTrue = 0; _IndexTrue < _MeshTrue.VBO.GetSize(); _IndexTrue++)
+			{
+				if (_MeshTemp.VBO[_IndexTemp].Position == _MeshTrue.VBO[_IndexTrue].Position && _MeshTemp.VBO[_IndexTemp].Normal == _MeshTrue.VBO[_IndexTrue].Normal && _MeshTemp.VBO[_IndexTemp].Tangent == _MeshTrue.VBO[_IndexTrue].Tangent && _MeshTemp.VBO[_IndexTemp].TextureCoords == _MeshTrue.VBO[_IndexTrue].TextureCoords)
+				{
+					_Found = true;
+					break;
+				}
+			}
+
+			if (_Found)
+			{
+				continue;
+			}
+
+			_MeshTrue.VBO.PushBack(_MeshTemp.VBO[_IndexTemp]);
+		}
+
+		for (size_t _IndexTemp = 0; _IndexTemp < _MeshTemp.IBO.GetSize(); _IndexTemp++)
+		{
+			IndexData _IndexDataTrue;
+
+			for (size_t _IndexTrue = 0; _IndexTrue < _MeshTrue.VBO.GetSize(); _IndexTrue++)
+			{
+				if (_MeshTemp.VBO[_MeshTemp.IBO[_IndexTemp].IndexA].Position == _MeshTrue.VBO[_IndexTrue].Position && _MeshTemp.VBO[_MeshTemp.IBO[_IndexTemp].IndexA].Normal == _MeshTrue.VBO[_IndexTrue].Normal && _MeshTemp.VBO[_MeshTemp.IBO[_IndexTemp].IndexA].Tangent == _MeshTrue.VBO[_IndexTrue].Tangent && _MeshTemp.VBO[_MeshTemp.IBO[_IndexTemp].IndexA].TextureCoords == _MeshTrue.VBO[_IndexTrue].TextureCoords)
+				{
+					_IndexDataTrue.IndexA = _IndexTrue;
+					break;
+				}
+			}
+
+			for (size_t _IndexTrue = 0; _IndexTrue < _MeshTrue.VBO.GetSize(); _IndexTrue++)
+			{
+				if (_MeshTemp.VBO[_MeshTemp.IBO[_IndexTemp].IndexB].Position == _MeshTrue.VBO[_IndexTrue].Position && _MeshTemp.VBO[_MeshTemp.IBO[_IndexTemp].IndexB].Normal == _MeshTrue.VBO[_IndexTrue].Normal && _MeshTemp.VBO[_MeshTemp.IBO[_IndexTemp].IndexB].Tangent == _MeshTrue.VBO[_IndexTrue].Tangent && _MeshTemp.VBO[_MeshTemp.IBO[_IndexTemp].IndexB].TextureCoords == _MeshTrue.VBO[_IndexTrue].TextureCoords)
+				{
+					_IndexDataTrue.IndexB = _IndexTrue;
+					break;
+				}
+			}
+
+			for (size_t _IndexTrue = 0; _IndexTrue < _MeshTrue.VBO.GetSize(); _IndexTrue++)
+			{
+				if (_MeshTemp.VBO[_MeshTemp.IBO[_IndexTemp].IndexC].Position == _MeshTrue.VBO[_IndexTrue].Position && _MeshTemp.VBO[_MeshTemp.IBO[_IndexTemp].IndexC].Normal == _MeshTrue.VBO[_IndexTrue].Normal && _MeshTemp.VBO[_MeshTemp.IBO[_IndexTemp].IndexC].Tangent == _MeshTrue.VBO[_IndexTrue].Tangent && _MeshTemp.VBO[_MeshTemp.IBO[_IndexTemp].IndexC].TextureCoords == _MeshTrue.VBO[_IndexTrue].TextureCoords)
+				{
+					_IndexDataTrue.IndexC = _IndexTrue;
+					break;
+				}
+			}
+
+			_MeshTrue.IBO.PushBack(_IndexDataTrue);
+		}
+
+		Meshes.emplace_back(std::move(_MeshTrue));
 	}
 
 	_fIn.close();
